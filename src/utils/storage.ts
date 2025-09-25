@@ -13,12 +13,18 @@ export const getComplaints = (): Complaint[] => {
   return stored ? JSON.parse(stored) : [];
 };
 
-export const updateComplaintStatus = (id: string, status: Complaint['status']): void => {
+export const updateComplaintStatus = (id: string, status: Complaint['status'], completionPhoto?: string): void => {
   const complaints = getComplaints();
   const index = complaints.findIndex(c => c.id === id);
   if (index !== -1) {
     complaints[index].status = status;
     complaints[index].updatedAt = new Date().toISOString();
+    
+    if (status === 'resolved' && completionPhoto) {
+      complaints[index].completionPhoto = completionPhoto;
+      complaints[index].completedAt = new Date().toISOString();
+    }
+    
     localStorage.setItem(COMPLAINTS_KEY, JSON.stringify(complaints));
   }
 };

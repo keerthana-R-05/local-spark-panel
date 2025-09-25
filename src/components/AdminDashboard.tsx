@@ -8,12 +8,18 @@ import {
   BarChart3,
   MapPin,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Camera,
+  MessageSquare,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getComplaints, updateComplaintStatus } from '@/utils/storage';
 import { Complaint, User } from '@/types';
@@ -26,6 +32,9 @@ interface AdminDashboardProps {
 export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'resolved'>('all');
+  const [selectedComplaint, setSelectedComplaint] = useState<string | null>(null);
+  const [completionPhoto, setCompletionPhoto] = useState<File | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,6 +42,12 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
   }, []);
 
   const handleStatusUpdate = (complaintId: string, newStatus: Complaint['status']) => {
+    if (newStatus === 'resolved') {
+      setSelectedComplaint(complaintId);
+      setIsDialogOpen(true);
+      return;
+    }
+    
     updateComplaintStatus(complaintId, newStatus);
     setComplaints(getComplaints());
     
@@ -40,6 +55,49 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       title: "Status Updated",
       description: `Complaint status changed to ${newStatus.replace('-', ' ')}.`,
     });
+  };
+
+  const handleResolveWithPhoto = () => {
+    if (!selectedComplaint) return;
+    
+    let photoData = '';
+    if (completionPhoto) {
+      // Convert file to base64 for localStorage
+      const reader = new FileReader();
+      reader.onload = () => {
+        photoData = reader.result as string;
+        updateComplaintStatus(selectedComplaint, 'resolved', photoData);
+        setComplaints(getComplaints());
+        
+        // Simulate SMS notification
+        toast({
+          title: "Work Completed!",
+          description: "Complaint resolved with photo. SMS notification sent to citizen.",
+        });
+        
+        setIsDialogOpen(false);
+        setSelectedComplaint(null);
+        setCompletionPhoto(null);
+      };
+      reader.readAsDataURL(completionPhoto);
+    } else {
+      updateComplaintStatus(selectedComplaint, 'resolved');
+      setComplaints(getComplaints());
+      
+      toast({
+        title: "Work Completed!",
+        description: "Complaint resolved. SMS notification sent to citizen.",
+      });
+      
+      setIsDialogOpen(false);
+      setSelectedComplaint(null);
+    }
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setCompletionPhoto(e.target.files[0]);
+    }
   };
 
   const filteredComplaints = complaints.filter(complaint => 
@@ -94,6 +152,21 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const calculateTimeToComplete = (createdAt: string, completedAt?: string) => {
+    if (!completedAt) return null;
+    
+    const created = new Date(createdAt);
+    const completed = new Date(completedAt);
+    const diffInMs = completed.getTime() - created.getTime();
+    const diffInHours = Math.round(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInHours / 24);
+    
+    if (diffInDays > 0) {
+      return `${diffInDays}d ${diffInHours % 24}h`;
+    }
+    return `${diffInHours}h`;
   };
 
   const stats = getStatusStats();
@@ -234,16 +307,47 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                                 <Calendar className="w-3 h-3 mr-1" />
                                 {formatDate(complaint.createdAt)}
                               </span>
+                              {complaint.completedAt && (
+                                <span className="flex items-center text-success">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Completed: {formatDate(complaint.completedAt)}
+                                </span>
+                              )}
                             </div>
                             <span>🏢 {complaint.department}</span>
                           </div>
+                          
+                          {complaint.status === 'resolved' && complaint.completedAt && (
+                            <div className="mb-3 p-2 bg-success/10 rounded-lg border border-success/20">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-success font-medium">
+                                  Timeline: {calculateTimeToComplete(complaint.createdAt, complaint.completedAt)} to complete
+                                </span>
+                                {complaint.completionPhoto && (
+                                  <div className="flex items-center space-x-1 text-success">
+                                    <Camera className="w-3 h-3" />
+                                    <span>Photo attached</span>
+                                  </div>
+                                )}
+                              </div>
+                              {complaint.completionPhoto && (
+                                <div className="mt-2">
+                                  <img 
+                                    src={complaint.completionPhoto} 
+                                    alt="Completion photo" 
+                                    className="w-16 h-16 object-cover rounded border"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           <div className="flex space-x-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleStatusUpdate(complaint.id, 'in-progress')}
-                              disabled={complaint.status === 'in-progress'}
+                              disabled={complaint.status === 'in-progress' || complaint.status === 'resolved'}
                             >
                               Mark In Progress
                             </Button>
@@ -252,8 +356,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                               variant="success"
                               onClick={() => handleStatusUpdate(complaint.id, 'resolved')}
                               disabled={complaint.status === 'resolved'}
+                              className="flex items-center space-x-1"
                             >
-                              Mark Resolved
+                              <Camera className="w-3 h-3" />
+                              <span>Complete Work</span>
                             </Button>
                           </div>
                         </CardContent>
@@ -335,6 +441,57 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
           </div>
         </div>
       </div>
+
+      {/* Completion Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-success" />
+              <span>Complete Work</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="completion-photo" className="flex items-center space-x-2">
+                <Camera className="w-4 h-4" />
+                <span>Upload Completion Photo (Optional)</span>
+              </Label>
+              <Input
+                id="completion-photo"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="cursor-pointer"
+              />
+              {completionPhoto && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {completionPhoto.name}
+                </p>
+              )}
+            </div>
+            
+            <div className="bg-accent/20 p-3 rounded-lg">
+              <div className="flex items-center space-x-2 text-sm">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <span className="font-medium">SMS will be sent to citizen upon completion</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Notification will include completion details and photo (if uploaded)
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={handleResolveWithPhoto} className="flex-1">
+              Complete & Notify
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

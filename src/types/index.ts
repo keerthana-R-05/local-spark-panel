@@ -9,6 +9,8 @@ export interface Complaint {
   status: 'pending' | 'in-progress' | 'resolved';
   createdAt: string;
   updatedAt: string;
+  completionPhoto?: string;
+  completedAt?: string;
 }
 
 export interface User {
