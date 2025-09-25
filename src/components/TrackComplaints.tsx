@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Search, Clock, CheckCircle, AlertCircle, FileText, Image } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getComplaints } from '@/utils/storage';
 import { Complaint } from '@/types';
+import { TimelineTracker } from '@/components/TimelineTracker';
 
 export const TrackComplaints = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -97,7 +98,31 @@ export const TrackComplaints = () => {
                     {complaint.description}
                   </p>
                   
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  {/* Attachments Preview */}
+                  {complaint.attachments && complaint.attachments.length > 0 && (
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Image className="w-4 h-4 text-primary" />
+                      <span className="text-xs text-muted-foreground">
+                        {complaint.attachments.length} attachment(s)
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Completion Photo */}
+                  {complaint.status === 'resolved' && complaint.completionPhoto && (
+                    <div className="mb-3">
+                      <p className="text-xs font-medium text-success mb-2">✅ Work completed with proof:</p>
+                      <img 
+                        src={complaint.completionPhoto} 
+                        alt="Completion proof" 
+                        className="w-20 h-20 object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                  
+                  <TimelineTracker complaint={complaint} />
+                  
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
                     <div className="flex items-center space-x-4">
                       <span>ID: {complaint.id}</span>
                       <span>📍 {complaint.location}</span>

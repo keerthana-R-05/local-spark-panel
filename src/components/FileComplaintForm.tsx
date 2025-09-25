@@ -6,9 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { saveComplaint, generateId } from '@/utils/storage';
+import { saveComplaint, generateId, addUserPoints, checkAndAwardBadges } from '@/utils/storage';
 import { assignDepartment } from '@/utils/aiRouting';
 import { Complaint } from '@/types';
+import { FileUpload } from '@/components/FileUpload';
+import { LocationPicker } from '@/components/LocationPicker';
 
 export const FileComplaintForm = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +20,8 @@ export const FileComplaintForm = () => {
     name: '',
     email: '',
   });
+  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | undefined>();
+  const [files, setFiles] = useState<File[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -55,26 +59,53 @@ export const FileComplaintForm = () => {
     setIsSubmitting(true);
 
     // Simulate processing delay
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Convert files to base64 for localStorage
+      const attachments: string[] = [];
+      for (const file of files) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        attachments.push(base64);
+      }
+
       const complaint: Complaint = {
         id: generateId(),
         title: formData.title,
         description: formData.description,
         location: formData.location,
+        gpsLocation,
         name: formData.name || undefined,
         email: formData.email || undefined,
         department: assignDepartment(formData.description),
         status: 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        attachments: attachments.length > 0 ? attachments : undefined,
+        points: 10,
       };
 
       saveComplaint(complaint);
       
+      // Award points and check for badges
+      addUserPoints(10);
+      const newBadges = checkAndAwardBadges();
+      
       toast({
-        title: "Complaint submitted successfully!",
+        title: "Complaint submitted successfully! (+10 points)",
         description: `Complaint ID: ${complaint.id}. Assigned to ${complaint.department}.`,
       });
+
+      if (newBadges.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: "🏆 New Badge Earned!",
+            description: `You earned: ${newBadges.join(', ')}`,
+          });
+        }, 1000);
+      }
 
       // Reset form
       setFormData({
@@ -84,7 +115,8 @@ export const FileComplaintForm = () => {
         name: '',
         email: '',
       });
-      
+      setGpsLocation(undefined);
+      setFiles([]);
       setIsSubmitting(false);
     }, 1500);
   };
@@ -147,19 +179,15 @@ export const FileComplaintForm = () => {
 
           {/* Location */}
           <div className="space-y-2">
-            <Label htmlFor="location" className="text-sm font-medium">
+            <Label className="text-sm font-medium">
               Location *
             </Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="Street address or landmark"
-                className="bg-background border-border/50 focus:border-primary pl-10"
-              />
-            </div>
+            <LocationPicker 
+              onLocationChange={(location, gps) => {
+                setFormData(prev => ({ ...prev, location }));
+                setGpsLocation(gps);
+              }}
+            />
           </div>
 
           {/* Optional Fields */}
@@ -196,15 +224,7 @@ export const FileComplaintForm = () => {
             <Label className="text-sm font-medium">
               Upload Photo/Video (optional)
             </Label>
-            <div className="border-2 border-dashed border-border/50 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-              <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Click to upload photos or videos
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Max size: 10MB per file
-              </p>
-            </div>
+            <FileUpload onFilesChange={setFiles} maxFiles={3} />
           </div>
 
           {/* Submit Button */}

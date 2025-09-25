@@ -11,13 +11,20 @@ import {
   TrendingUp,
   Camera,
   MessageSquare,
-  Upload
+  Upload,
+  Car,
+  Trash2,
+  Zap,
+  TreePine,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Analytics } from '@/components/Analytics';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -120,6 +127,25 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       departments[complaint.department] = (departments[complaint.department] || 0) + 1;
     });
     return Object.entries(departments).map(([name, count]) => ({ name, count }));
+  };
+
+  const getDepartmentIcon = (department: string) => {
+    switch (department) {
+      case 'Road & Transport':
+        return <Car className="w-5 h-5" />;
+      case 'Sanitation & Drainage':
+        return <Trash2 className="w-5 h-5" />;
+      case 'Electricity & Lighting':
+        return <Zap className="w-5 h-5" />;
+      case 'Environment':
+        return <TreePine className="w-5 h-5" />;
+      default:
+        return <Settings className="w-5 h-5" />;
+    }
+  };
+
+  const getComplaintsByDepartment = (department: string) => {
+    return complaints.filter(c => c.department === department);
   };
 
   const getStatusIcon = (status: Complaint['status']) => {
@@ -253,33 +279,185 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Complaints List */}
-          <div className="lg:col-span-2">
-            <Card className="border-border/50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
+        {/* Department Tabs */}
+        <Tabs defaultValue="all" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="all" className="flex items-center space-x-1">
+              <FileText className="w-4 h-4" />
+              <span>All</span>
+            </TabsTrigger>
+            <TabsTrigger value="Road & Transport" className="flex items-center space-x-1">
+              <Car className="w-4 h-4" />
+              <span>Transport</span>
+            </TabsTrigger>
+            <TabsTrigger value="Sanitation & Drainage" className="flex items-center space-x-1">
+              <Trash2 className="w-4 h-4" />
+              <span>Sanitation</span>
+            </TabsTrigger>
+            <TabsTrigger value="Electricity & Lighting" className="flex items-center space-x-1">
+              <Zap className="w-4 h-4" />
+              <span>Electricity</span>
+            </TabsTrigger>
+            <TabsTrigger value="Environment" className="flex items-center space-x-1">
+              <TreePine className="w-4 h-4" />
+              <span>Environment</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center space-x-1">
+              <BarChart3 className="w-4 h-4" />
+              <span>Analytics</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <FileText className="w-5 h-5 mr-2 text-primary" />
+                      All Complaints
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="max-h-96 overflow-y-auto">
+                    <div className="space-y-4">
+                      {complaints.length > 0 ? (
+                        complaints.map((complaint) => (
+                          <Card key={complaint.id} className="border-border/50">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-semibold text-foreground">{complaint.title}</h4>
+                                  <p className="text-sm text-muted-foreground">ID: {complaint.id}</p>
+                                </div>
+                                <Badge variant={getStatusVariant(complaint.status)} className="flex items-center space-x-1">
+                                  {getStatusIcon(complaint.status)}
+                                  <span className="capitalize">{complaint.status.replace('-', ' ')}</span>
+                                </Badge>
+                              </div>
+                              
+                              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                                {complaint.description}
+                              </p>
+                              
+                              <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                                <div className="flex items-center space-x-4">
+                                  <span className="flex items-center">
+                                    <MapPin className="w-3 h-3 mr-1" />
+                                    {complaint.location}
+                                  </span>
+                                  <span className="flex items-center">
+                                    <Calendar className="w-3 h-3 mr-1" />
+                                    {formatDate(complaint.createdAt)}
+                                  </span>
+                                  {complaint.completedAt && (
+                                    <span className="flex items-center text-success">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Completed: {formatDate(complaint.completedAt)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  {getDepartmentIcon(complaint.department)}
+                                  <span>{complaint.department}</span>
+                                </div>
+                              </div>
+                              
+                              {complaint.status === 'resolved' && complaint.completedAt && (
+                                <div className="mb-3 p-2 bg-success/10 rounded-lg border border-success/20">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-success font-medium">
+                                      Timeline: {calculateTimeToComplete(complaint.createdAt, complaint.completedAt)} to complete
+                                    </span>
+                                    {complaint.completionPhoto && (
+                                      <div className="flex items-center space-x-1 text-success">
+                                        <Camera className="w-3 h-3" />
+                                        <span>Photo attached</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {complaint.completionPhoto && (
+                                    <div className="mt-2">
+                                      <img 
+                                        src={complaint.completionPhoto} 
+                                        alt="Completion photo" 
+                                        className="w-16 h-16 object-cover rounded border"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusUpdate(complaint.id, 'in-progress')}
+                                  disabled={complaint.status === 'in-progress' || complaint.status === 'resolved'}
+                                >
+                                  Mark In Progress
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => handleStatusUpdate(complaint.id, 'resolved')}
+                                  disabled={complaint.status === 'resolved'}
+                                  className="flex items-center space-x-1"
+                                >
+                                  <Camera className="w-3 h-3" />
+                                  <span>Complete Work</span>
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground">No complaints found.</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Quick Stats Sidebar */}
+              <div className="space-y-6">
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <BarChart3 className="w-5 h-5 mr-2 text-primary" />
+                      Department Breakdown
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {departmentStats.map((dept) => (
+                        <div key={dept.name} className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{dept.name}</span>
+                          <Badge variant="outline">{dept.count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Department Specific Tabs */}
+          {['Road & Transport', 'Sanitation & Drainage', 'Electricity & Lighting', 'Environment'].map((dept) => (
+            <TabsContent key={dept} value={dept}>
+              <Card className="border-border/50">
+                <CardHeader>
                   <CardTitle className="flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-primary" />
-                    Complaints Management
+                    {getDepartmentIcon(dept)}
+                    <span className="ml-2">{dept} Complaints</span>
                   </CardTitle>
-                  <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-              <CardContent className="max-h-96 overflow-y-auto">
-                <div className="space-y-4">
-                  {filteredComplaints.length > 0 ? (
-                    filteredComplaints.map((complaint) => (
+                </CardHeader>
+                <CardContent className="max-h-96 overflow-y-auto">
+                  <div className="space-y-4">
+                    {getComplaintsByDepartment(dept).map((complaint) => (
                       <Card key={complaint.id} className="border-border/50">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
@@ -293,55 +471,6 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                             </Badge>
                           </div>
                           
-                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                            {complaint.description}
-                          </p>
-                          
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                            <div className="flex items-center space-x-4">
-                              <span className="flex items-center">
-                                <MapPin className="w-3 h-3 mr-1" />
-                                {complaint.location}
-                              </span>
-                              <span className="flex items-center">
-                                <Calendar className="w-3 h-3 mr-1" />
-                                {formatDate(complaint.createdAt)}
-                              </span>
-                              {complaint.completedAt && (
-                                <span className="flex items-center text-success">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Completed: {formatDate(complaint.completedAt)}
-                                </span>
-                              )}
-                            </div>
-                            <span>🏢 {complaint.department}</span>
-                          </div>
-                          
-                          {complaint.status === 'resolved' && complaint.completedAt && (
-                            <div className="mb-3 p-2 bg-success/10 rounded-lg border border-success/20">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-success font-medium">
-                                  Timeline: {calculateTimeToComplete(complaint.createdAt, complaint.completedAt)} to complete
-                                </span>
-                                {complaint.completionPhoto && (
-                                  <div className="flex items-center space-x-1 text-success">
-                                    <Camera className="w-3 h-3" />
-                                    <span>Photo attached</span>
-                                  </div>
-                                )}
-                              </div>
-                              {complaint.completionPhoto && (
-                                <div className="mt-2">
-                                  <img 
-                                    src={complaint.completionPhoto} 
-                                    alt="Completion photo" 
-                                    className="w-16 h-16 object-cover rounded border"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
-
                           <div className="flex space-x-2">
                             <Button
                               size="sm"
@@ -364,82 +493,18 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No complaints found for the selected filter.</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Analytics */}
-          <div className="space-y-6">
-            {/* Department Breakdown */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BarChart3 className="w-5 h-5 mr-2 text-primary" />
-                  Department Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {departmentStats.map((dept) => (
-                    <div key={dept.name} className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{dept.name}</span>
-                      <Badge variant="outline">{dept.count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Issue Heatmap Placeholder */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MapPin className="w-5 h-5 mr-2 text-primary" />
-                  Issue Heatmap
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-32 bg-gradient-to-r from-accent to-muted rounded-lg flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Interactive map coming soon</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Analytics Placeholder */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="w-5 h-5 mr-2 text-primary" />
-                  Performance Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Avg. Resolution Time</span>
-                    <span className="text-sm font-medium">2.5 days</span>
+                    ))}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Response Rate</span>
-                    <span className="text-sm font-medium">94%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Citizen Satisfaction</span>
-                    <span className="text-sm font-medium">4.2/5</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics">
+            <Analytics />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Completion Dialog */}

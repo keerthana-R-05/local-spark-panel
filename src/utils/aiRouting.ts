@@ -1,13 +1,10 @@
 export const assignDepartment = (description: string): string => {
   const keywords = {
-    'Public Works': ['road', 'street', 'pothole', 'sidewalk', 'bridge', 'infrastructure', 'construction'],
-    'Sanitation': ['garbage', 'trash', 'waste', 'recycling', 'bin', 'cleanup', 'litter'],
-    'Parks & Recreation': ['park', 'playground', 'tree', 'grass', 'sports', 'facility', 'maintenance'],
-    'Utilities': ['water', 'electricity', 'power', 'outage', 'sewer', 'gas', 'utility'],
-    'Transportation': ['traffic', 'bus', 'transport', 'parking', 'signal', 'sign', 'bike lane'],
-    'Public Safety': ['noise', 'safety', 'vandalism', 'crime', 'emergency', 'disturbance'],
-    'Health Services': ['health', 'medical', 'clinic', 'hospital', 'hygiene', 'pest'],
-    'General Services': []
+    'Road & Transport': ['pothole', 'traffic', 'accident', 'road', 'street', 'sidewalk', 'bridge', 'parking', 'signal', 'sign', 'bike lane', 'transport', 'bus'],
+    'Sanitation & Drainage': ['trash', 'garbage', 'drainage', 'sewer', 'waste', 'recycling', 'bin', 'cleanup', 'litter', 'water', 'flood'],
+    'Electricity & Lighting': ['electricity', 'streetlight', 'outage', 'power', 'lighting', 'bulb', 'cable', 'wire'],
+    'Environment': ['tree', 'pollution', 'green', 'park', 'playground', 'grass', 'garden', 'environment', 'air quality'],
+    'Others': []
   };
 
   const lowerDescription = description.toLowerCase();
@@ -18,5 +15,5 @@ export const assignDepartment = (description: string): string => {
     }
   }
   
-  return 'General Services';
+  return 'Others';
 };
